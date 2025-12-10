@@ -1,0 +1,888 @@
+{
+  "name": "Property Management Marketing Audit and Reporting System",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "options": {
+          "loadPreviousSession": "memory"
+        }
+      },
+      "id": "58a8a83e-aba2-45d8-8a38-79925b5c0803",
+      "name": "Chat Trigger",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        1424,
+        4240
+      ],
+      "webhookId": "31a71aae-a68d-434b-beec-3979b5958287"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "id-1",
+              "name": "businessUrl",
+              "value": "={{ $json.chatInput }}",
+              "type": "string"
+            },
+            {
+              "id": "id-2",
+              "name": "businessName",
+              "value": "={{ $json.domainName }}",
+              "type": "string"
+            },
+            {
+              "id": "id-5",
+              "name": "pageSpeedApiKey",
+              "value": "AIzaSyAk2S3Ky-vy9PDBo-HHa-eT4RFmRzRPt3M",
+              "type": "string"
+            },
+            {
+              "id": "id-7",
+              "name": "googleBusinessProfileId",
+              "value": "<__PLACEHOLDER_VALUE__Google Business Profile ID__>",
+              "type": "string"
+            },
+            {
+              "id": "id-9",
+              "name": "searchKeyword",
+              "value": "<__PLACEHOLDER_VALUE__SEO Keyword to Track__>",
+              "type": "string"
+            },
+            {
+              "id": "id-10",
+              "name": "searchLocation",
+              "value": "<__PLACEHOLDER_VALUE__Geographic Location for SEO__>",
+              "type": "string"
+            },
+            {
+              "id": "id-11",
+              "name": "googleMapsApiKey",
+              "value": "<__PLACEHOLDER_VALUE__Google Maps API Key__>",
+              "type": "string"
+            },
+            {
+              "id": "id-12",
+              "name": "googlePlaceId",
+              "value": "<__PLACEHOLDER_VALUE__Google Place ID__>",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "16f1ed48-54d0-4425-bf2d-fc675bd54055",
+      "name": "Workflow Configuration",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        2000,
+        4240
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.businessUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          }
+        }
+      },
+      "id": "7db739f6-4cc2-47e2-b5dd-75ea6d39b8e5",
+      "name": "Fetch Website HTML",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2448,
+        4048
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract Technology Stack from HTML\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const html = item.json.body || item.json.html || '';\n  const htmlLower = html.toLowerCase();\n  \n  // Detect various technologies\n  const techStack = {\n    googleTagManager: htmlLower.includes('googletagmanager.com/gtm.js') || htmlLower.includes('gtm.js') || htmlLower.includes('google tag manager'),\n    googleAnalyticsUA: htmlLower.includes('google-analytics.com/analytics.js') || htmlLower.includes('ua-') || /ga\\(['\"]create['\"]/.test(htmlLower),\n    googleAnalyticsGA4: htmlLower.includes('googletagmanager.com/gtag/js') || htmlLower.includes('gtag(') || htmlLower.includes('g-') || htmlLower.includes('ga4'),\n    facebookPixel: htmlLower.includes('connect.facebook.net') || htmlLower.includes('fbq(') || htmlLower.includes('facebook pixel'),\n    googleAdsPixel: htmlLower.includes('googleadservices.com') || htmlLower.includes('google_conversion') || htmlLower.includes('aw-'),\n    chatWidget: htmlLower.includes('tawk.to') || htmlLower.includes('intercom') || htmlLower.includes('drift') || htmlLower.includes('livechat') || htmlLower.includes('zendesk') || htmlLower.includes('crisp') || htmlLower.includes('olark') || htmlLower.includes('chat-widget')\n  };\n  \n  results.push({\n    json: {\n      techStack: techStack,\n      detectedTechnologies: Object.keys(techStack).filter(key => techStack[key]),\n      totalDetected: Object.values(techStack).filter(val => val === true).length\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "296713d0-595e-4719-9c8a-aef1422df9ad",
+      "name": "Extract Tech Stack",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2672,
+        4048
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://www.googleapis.com/pagespeedonline/v5/runPagespeed?url={{ $json.businessUrl }}&key={{ $json.pageSpeedApiKey }}&strategy=desktop\n",
+        "options": {}
+      },
+      "id": "f9348551-4330-4441-b059-1b0a82caf807",
+      "name": "Fetch Website Performance (PageSpeed API)",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2672,
+        4624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Calculate Category Scores for Property Management Marketing Audit\n\n// Get all input items\nconst items = $input.all();\n\n// Initialize data containers\nlet businessDetails = {};\nlet techStack = {};\nlet googleBusiness = {};\nlet facebookReviews = {};\nlet seoData = {};\nlet performanceData = {};\n\n// Parse input data from different sources\nfor (const item of items) {\n  const json = item.json;\n  \n  // Identify data source and store accordingly\n  if (json.technologies || json.html) {\n    techStack = json;\n  } else if (json.reviews || json.rating) {\n    if (json.source === 'google' || json.placeId) {\n      googleBusiness = json;\n    } else if (json.source === 'facebook') {\n      facebookReviews = json;\n    }\n  } else if (json.keywords || json.visibility) {\n    seoData = json;\n  } else if (json.performance || json.speedIndex) {\n    performanceData = json;\n  } else if (json.businessName || json.website) {\n    businessDetails = json;\n  }\n}\n\n// 1. Business Details Score (0-100)\nlet businessDetailsScore = 0;\nconst requiredFields = ['businessName', 'website', 'phone', 'email', 'address'];\nlet presentFields = 0;\n\nfor (const field of requiredFields) {\n  if (businessDetails[field] && businessDetails[field].toString().trim() !== '') {\n    presentFields++;\n  }\n}\nbusinessDetailsScore = (presentFields / requiredFields.length) * 100;\n\n// 2. Tech Stack Score (0-100) - 40% weight based on detected technologies\nlet techStackScore = 0;\nif (techStack.technologies && Array.isArray(techStack.technologies)) {\n  const techCount = techStack.technologies.length;\n  // Score based on number of modern technologies detected\n  // 0-5 techs: 40%, 6-10: 60%, 11-15: 80%, 16+: 100%\n  if (techCount >= 16) {\n    techStackScore = 100;\n  } else if (techCount >= 11) {\n    techStackScore = 80;\n  } else if (techCount >= 6) {\n    techStackScore = 60;\n  } else {\n    techStackScore = 40;\n  }\n} else {\n  techStackScore = 40; // Default 40% if no tech data\n}\n\n// 3. Google Business Profile Score (0-100)\nlet googleBusinessScore = 0;\nconst gbpFields = ['name', 'address', 'phone', 'website', 'rating', 'reviews'];\nlet gbpPresent = 0;\n\nfor (const field of gbpFields) {\n  if (googleBusiness[field] && googleBusiness[field].toString().trim() !== '') {\n    gbpPresent++;\n  }\n}\ngoogleBusinessScore = (gbpPresent / gbpFields.length) * 100;\n\n// 4. Online Reputation Score (0-100)\nlet reputationScore = 0;\nlet reviewCount = 0;\nlet positiveCount = 0;\nlet negativeCount = 0;\nlet replyRate = 0;\n\n// Combine Google and Facebook reviews\nif (googleBusiness.reviews) {\n  reviewCount += googleBusiness.reviews.length || 0;\n  positiveCount += googleBusiness.reviews.filter(r => r.rating >= 4).length || 0;\n  negativeCount += googleBusiness.reviews.filter(r => r.rating <= 2).length || 0;\n  const repliedReviews = googleBusiness.reviews.filter(r => r.reply).length || 0;\n  replyRate = reviewCount > 0 ? (repliedReviews / reviewCount) : 0;\n}\n\nif (facebookReviews.reviews) {\n  reviewCount += facebookReviews.reviews.length || 0;\n  positiveCount += facebookReviews.reviews.filter(r => r.rating >= 4).length || 0;\n  negativeCount += facebookReviews.reviews.filter(r => r.rating <= 2).length || 0;\n}\n\n// Calculate reputation score components\nconst reviewCountScore = Math.min((reviewCount / 50) * 100, 100); // 50+ reviews = 100%\nconst positiveRatio = reviewCount > 0 ? (positiveCount / reviewCount) : 0;\nconst positiveRatioScore = positiveRatio * 100;\nconst replyRateScore = replyRate * 100;\n\n// Weighted reputation score: 30% count, 50% positive ratio, 20% reply rate\nreputationScore = (reviewCountScore * 0.3) + (positiveRatioScore * 0.5) + (replyRateScore * 0.2);\n\n// 5. Website Performance Score (0-100)\nlet performanceScore = 0;\nif (performanceData.performance) {\n  const perf = performanceData.performance;\n  const speedScore = perf.speedIndex ? Math.max(0, 100 - (perf.speedIndex / 100)) : 50;\n  const fcp = perf.firstContentfulPaint ? Math.max(0, 100 - (perf.firstContentfulPaint / 30)) : 50;\n  const lcp = perf.largestContentfulPaint ? Math.max(0, 100 - (perf.largestContentfulPaint / 40)) : 50;\n  const cls = perf.cumulativeLayoutShift ? Math.max(0, 100 - (perf.cumulativeLayoutShift * 100)) : 50;\n  \n  performanceScore = (speedScore + fcp + lcp + cls) / 4;\n} else if (performanceData.score) {\n  performanceScore = performanceData.score;\n} else {\n  performanceScore = 50; // Default middle score\n}\n\n// 6. SEO Analysis Score (0-100)\nlet seoScore = 0;\nif (seoData.keywords && Array.isArray(seoData.keywords)) {\n  const rankedKeywords = seoData.keywords.filter(k => k.position && k.position <= 100).length;\n  const topRankedKeywords = seoData.keywords.filter(k => k.position && k.position <= 10).length;\n  \n  const rankingScore = Math.min((rankedKeywords / 20) * 100, 100); // 20+ ranked keywords = 100%\n  const topRankingScore = Math.min((topRankedKeywords / 5) * 100, 100); // 5+ top-10 keywords = 100%\n  \n  seoScore = (rankingScore * 0.6) + (topRankingScore * 0.4);\n} else if (seoData.visibility) {\n  seoScore = seoData.visibility;\n} else {\n  seoScore = 50; // Default middle score\n}\n\n// Calculate Overall Score (weighted average)\nconst weights = {\n  businessDetails: 0.10,\n  techStack: 0.15,\n  googleBusiness: 0.15,\n  reputation: 0.25,\n  performance: 0.20,\n  seo: 0.15\n};\n\nconst overallScore = \n  (businessDetailsScore * weights.businessDetails) +\n  (techStackScore * weights.techStack) +\n  (googleBusinessScore * weights.googleBusiness) +\n  (reputationScore * weights.reputation) +\n  (performanceScore * weights.performance) +\n  (seoScore * weights.seo);\n\n// Return comprehensive scoring data\nreturn [\n  {\n    json: {\n      categoryScores: {\n        businessDetails: Math.round(businessDetailsScore * 10) / 10,\n        techStack: Math.round(techStackScore * 10) / 10,\n        googleBusinessProfile: Math.round(googleBusinessScore * 10) / 10,\n        onlineReputation: Math.round(reputationScore * 10) / 10,\n        websitePerformance: Math.round(performanceScore * 10) / 10,\n        seoAnalysis: Math.round(seoScore * 10) / 10\n      },\n      overallScore: Math.round(overallScore * 10) / 10,\n      details: {\n        businessDetails: {\n          score: Math.round(businessDetailsScore * 10) / 10,\n          fieldsPresent: presentFields,\n          fieldsRequired: requiredFields.length\n        },\n        techStack: {\n          score: Math.round(techStackScore * 10) / 10,\n          technologiesDetected: techStack.technologies?.length || 0\n        },\n        googleBusinessProfile: {\n          score: Math.round(googleBusinessScore * 10) / 10,\n          fieldsPresent: gbpPresent,\n          fieldsRequired: gbpFields.length\n        },\n        onlineReputation: {\n          score: Math.round(reputationScore * 10) / 10,\n          totalReviews: reviewCount,\n          positiveReviews: positiveCount,\n          negativeReviews: negativeCount,\n          replyRate: Math.round(replyRate * 100) + '%'\n        },\n        websitePerformance: {\n          score: Math.round(performanceScore * 10) / 10,\n          metrics: performanceData.performance || {}\n        },\n        seoAnalysis: {\n          score: Math.round(seoScore * 10) / 10,\n          rankedKeywords: seoData.keywords?.length || 0,\n          visibility: seoData.visibility || 'N/A'\n        }\n      },\n      timestamp: new Date().toISOString(),\n      auditData: {\n        businessDetails,\n        techStack,\n        googleBusiness,\n        facebookReviews,\n        seoData,\n        performanceData\n      }\n    }\n  }\n];"
+      },
+      "id": "904dabc8-ac38-42d7-86ec-5cffcbb5b2c4",
+      "name": "Calculate Category Scores",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3120,
+        4240
+      ]
+    },
+    {
+      "parameters": {
+        "aggregate": "aggregateAllItemData",
+        "options": {}
+      },
+      "id": "951d5b4c-3d63-4d5a-bcaf-c5297c4b4add",
+      "name": "Combine All Audit Data",
+      "type": "n8n-nodes-base.aggregate",
+      "typeVersion": 1,
+      "position": [
+        2896,
+        4240
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "spreadsheet",
+        "title": "Scrapping",
+        "sheetsUi": {
+          "sheetValues": [
+            {
+              "title": "Scrap"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "4ff51a38-0896-4d9e-817a-b7f4ebab61bf",
+      "name": "Store Audit Data",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3408,
+        4096
+      ],
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4ASj1TKaMA5ACeUR",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json }}",
+        "hasOutputParser": true,
+        "options": {
+          "systemMessage": "You are a marketing audit analyst AI assistant. Your role is to analyze digital marketing audit data for property management companies and generate comprehensive, actionable insights.\n\nYour task is to:\n1. Review the audit data provided (business info, tech stack, Google Business Profile, reviews, website performance, SEO metrics)\n2. Identify strengths and critical weaknesses\n3. Generate specific, actionable recommendations\n4. Create an executive summary highlighting key findings\n5. Classify performance levels (Excellent 81-100%, Good 61-80%, Average 41-60%, Bad 21-40%, Worse 0-20%)\n6. Return structured analysis in the defined JSON format\n\nFocus on:\n- Missing or incomplete elements (e.g., no Facebook Pixel, missing review replies)\n- Performance gaps (e.g., low SEO visibility, poor Core Web Vitals)\n- Competitive positioning opportunities\n- Quick wins vs. long-term improvements"
+        }
+      },
+      "id": "dd19f2e5-f3b4-49bb-b255-0759486cdc79",
+      "name": "AI Report Generator",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 3,
+      "position": [
+        3344,
+        4400
+      ]
+    },
+    {
+      "parameters": {
+        "options": {}
+      },
+      "id": "e5503d41-aa49-44ac-bbce-40974305b91b",
+      "name": "Google Gemini Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGoogleGemini",
+      "typeVersion": 1,
+      "position": [
+        3360,
+        4624
+      ],
+      "credentials": {
+        "googlePalmApi": {
+          "id": "a2PKiHPrGskCVLyr",
+          "name": "Google Gemini(PaLM) Api account"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "id": "f6966727-0c8e-469c-9cc5-4010596e50cf",
+      "name": "Simple Memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        1504,
+        4464
+      ]
+    },
+    {
+      "parameters": {
+        "schemaType": "manual",
+        "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"executiveSummary\": {\n      \"type\": \"string\",\n      \"description\": \"A comprehensive executive summary of the audit findings\"\n    },\n    \"strengths\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"List of identified strengths\"\n    },\n    \"weaknesses\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"List of identified weaknesses\"\n    },\n    \"criticalAlerts\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"string\"\n      },\n      \"description\": \"List of critical issues requiring immediate attention\"\n    },\n    \"recommendations\": {\n      \"type\": \"array\",\n      \"items\": {\n        \"type\": \"object\",\n        \"properties\": {\n          \"category\": {\n            \"type\": \"string\",\n            \"description\": \"Category of the recommendation\"\n          },\n          \"priority\": {\n            \"type\": \"string\",\n            \"description\": \"Priority level of the recommendation\"\n          },\n          \"action\": {\n            \"type\": \"string\",\n            \"description\": \"Recommended action to take\"\n          }\n        },\n        \"required\": [\"category\", \"priority\", \"action\"]\n      },\n      \"description\": \"List of actionable recommendations\"\n    },\n    \"performanceClassification\": {\n      \"type\": \"string\",\n      \"description\": \"Overall performance classification\"\n    }\n  },\n  \"required\": [\"executiveSummary\", \"strengths\", \"weaknesses\", \"criticalAlerts\", \"recommendations\", \"performanceClassification\"]\n}"
+      },
+      "id": "c5d0dcf2-6c93-483b-8abf-f3cdc956ee1e",
+      "name": "Structured Output Parser",
+      "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+      "typeVersion": 1.3,
+      "position": [
+        3488,
+        4624
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract domain name from chatInput URL\nconst items = $input.all();\nconst results = [];\n\nfor (const item of items) {\n  const chatInput = item.json.chatInput || '';\n  let domainName = '';\n  \n  try {\n    // Parse the URL to extract domain\n    const url = new URL($input.first().json.chatInput);\n    // Get hostname and remove 'www.' prefix if present\n    domainName = url.hostname.replace(/^www\\./, '');\n  } catch (error) {\n    // If URL parsing fails, try to extract domain manually\n    const match = chatInput.match(/(?:https?:\\/\\/)?(?:www\\.)?([^:\\/\\s]+)/i);\n    if (match && match[1]) {\n      domainName = match[1];\n    }\n  }\n  \n  results.push({\n    json: {\n      ...item.json,\n      domainName: domainName\n    }\n  });\n}\n\nreturn results;"
+      },
+      "id": "13c8e65b-2622-4b81-b511-88bb99e8c347",
+      "name": "Extract Domain Name",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1776,
+        4240
+      ]
+    },
+    {
+      "parameters": {
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "fW901v0fEzwSof1uA",
+          "mode": "list",
+          "cachedResultName": "🔍 Company Research Intelligence Tool (easyapi/company-research-intelligence-tool)",
+          "cachedResultUrl": "https://console.apify.com/actors/fW901v0fEzwSof1uA/input"
+        },
+        "customBody": "={\n    \"domain\": \"{{ $json.domainName }}\"\n} ",
+        "timeout": {},
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        2224,
+        4240
+      ],
+      "id": "28936dd4-acbb-4bdf-b7e5-8e6e333ccdb7",
+      "name": "Run an Actor",
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "c5LkU4WnZeBBlKCH",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Actor runs",
+        "operation": "Get run",
+        "runId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        2448,
+        4240
+      ],
+      "id": "66a291b3-98cc-4b6b-850c-aca492bdd515",
+      "name": "Get run",
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "c5LkU4WnZeBBlKCH",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Datasets",
+        "datasetId": "={{ $json.defaultDatasetId }}",
+        "offset": {},
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        2672,
+        4240
+      ],
+      "id": "5401430a-176b-49e7-9614-fd5b75c89bb4",
+      "name": "Get dataset items",
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "c5LkU4WnZeBBlKCH",
+          "name": "Apify account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "actorSource": "store",
+        "actorId": {
+          "__rl": true,
+          "value": "pP8fxA1kSf7snQKNW",
+          "mode": "list",
+          "cachedResultName": "Google Maps Reviews Scraper (web_wanderer/google-reviews-scraper)",
+          "cachedResultUrl": "https://console.apify.com/actors/pP8fxA1kSf7snQKNW/input"
+        },
+        "customBody": "{\n    \"include_personal\": false,\n    \"place_ids\": [\n        \"ChIJ2VwB9HYgm4ARMrUVXwg2kBs\"\n    ],\n    \"place_urls\": [],\n    \"search\": [\n        \n    ]\n}",
+        "timeout": {},
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        2224,
+        3856
+      ],
+      "id": "1afb8aa6-d8e5-45f3-9d62-43d64b94518a",
+      "name": "Run an Actor1",
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "6DOXNwboRxgpcMBT",
+          "name": "Apify account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Actor runs",
+        "operation": "Get run",
+        "runId": {
+          "__rl": true,
+          "value": "={{ $json.id }}",
+          "mode": "id"
+        },
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        2448,
+        3856
+      ],
+      "id": "e1de5be8-18b4-4567-ab91-f0fd02de5cb2",
+      "name": "Get run1",
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "6DOXNwboRxgpcMBT",
+          "name": "Apify account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "resource": "Datasets",
+        "datasetId": "={{ $json.defaultDatasetId }}",
+        "offset": {},
+        "authentication": "apifyOAuth2Api"
+      },
+      "type": "@apify/n8n-nodes-apify.apify",
+      "typeVersion": 1,
+      "position": [
+        2672,
+        3856
+      ],
+      "id": "c3c6eb92-80a8-4ce6-97d3-0ee7b971df45",
+      "name": "Get dataset items1",
+      "credentials": {
+        "apifyOAuth2Api": {
+          "id": "6DOXNwboRxgpcMBT",
+          "name": "Apify account 2"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.businessUrl }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2448,
+        4432
+      ],
+      "id": "3c617715-4905-47e8-b027-9c990776f1a0",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "operation": "extractHtmlContent",
+        "extractionValues": {
+          "values": [
+            {
+              "key": "Address",
+              "cssSelector": "<address>"
+            },
+            {
+              "key": "Phone",
+              "cssSelector": "<a href=\"tel:\">"
+            },
+            {
+              "key": "Website",
+              "cssSelector": "a[href^=\"http\"]"
+            },
+            {
+              "key": "Hours",
+              "cssSelector": ".opening-hours"
+            },
+            {
+              "key": "Email",
+              "cssSelector": "<a href=\"mailto:\">"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.html",
+      "typeVersion": 1.2,
+      "position": [
+        2672,
+        4432
+      ],
+      "id": "09ede113-4253-463f-ba9d-77a7e911112f",
+      "name": "HTML"
+    },
+    {
+      "parameters": {
+        "operation": "appendOrUpdate",
+        "documentId": {
+          "__rl": true,
+          "value": "1pclLWQKwjO6JxR3ZjdqtDWAsT23sDL5nSN1ayduKlCI",
+          "mode": "list",
+          "cachedResultName": "Scrapping",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pclLWQKwjO6JxR3ZjdqtDWAsT23sDL5nSN1ayduKlCI/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 411638879,
+          "mode": "list",
+          "cachedResultName": "Scrap",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1pclLWQKwjO6JxR3ZjdqtDWAsT23sDL5nSN1ayduKlCI/edit#gid=411638879"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "spreadsheetId",
+              "displayName": "spreadsheetId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "properties",
+              "displayName": "properties",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "sheets",
+              "displayName": "sheets",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "spreadsheetUrl",
+              "displayName": "spreadsheetUrl",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3696,
+        4096
+      ],
+      "id": "ed529e84-9c93-4a95-9b1b-f9fa0142afdf",
+      "name": "Append or update row in sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "4ASj1TKaMA5ACeUR",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "folderId": "default",
+        "title": "Summary"
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        3696,
+        4400
+      ],
+      "id": "44ebe547-229f-49a9-844c-aeedc8789b47",
+      "name": "Create a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "8p8aB2eAtkp4kbkv",
+          "name": "Google Docs account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "update",
+        "documentURL": "={{ $json.id }}",
+        "actionsUi": {
+          "actionFields": [
+            {
+              "action": "insert",
+              "text": "=Executive Summary:\n{{ $('AI Report Generator').item.json.output.executiveSummary }}\n\nStrenghts:\n{{ $('AI Report Generator').item.json.output.strengths }}\n\nWeakness:\n{{ $('AI Report Generator').item.json.output.weaknesses }}\n\nCriticalAlerts:\n{{ $('AI Report Generator').item.json.output.criticalAlerts }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDocs",
+      "typeVersion": 2,
+      "position": [
+        3904,
+        4400
+      ],
+      "id": "55adfdc3-d7de-4a91-83c7-a5dab52dfa21",
+      "name": "Update a document",
+      "credentials": {
+        "googleDocsOAuth2Api": {
+          "id": "8p8aB2eAtkp4kbkv",
+          "name": "Google Docs account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Workflow Configuration": {
+      "main": [
+        [
+          {
+            "node": "Fetch Website HTML",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Run an Actor1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Run an Actor",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Fetch Website Performance (PageSpeed API)",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Website HTML": {
+      "main": [
+        [
+          {
+            "node": "Extract Tech Stack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Tech Stack": {
+      "main": [
+        [
+          {
+            "node": "Combine All Audit Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Fetch Website Performance (PageSpeed API)": {
+      "main": [
+        [
+          {
+            "node": "Combine All Audit Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Combine All Audit Data": {
+      "main": [
+        [
+          {
+            "node": "Calculate Category Scores",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Calculate Category Scores": {
+      "main": [
+        [
+          {
+            "node": "Store Audit Data",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "AI Report Generator",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google Gemini Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Report Generator",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Simple Memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Report Generator",
+            "type": "ai_memory",
+            "index": 0
+          },
+          {
+            "node": "Chat Trigger",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Structured Output Parser": {
+      "ai_outputParser": [
+        [
+          {
+            "node": "AI Report Generator",
+            "type": "ai_outputParser",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Report Generator": {
+      "main": [
+        [
+          {
+            "node": "Create a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Trigger": {
+      "main": [
+        [
+          {
+            "node": "Extract Domain Name",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Domain Name": {
+      "main": [
+        [
+          {
+            "node": "Workflow Configuration",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run an Actor": {
+      "main": [
+        [
+          {
+            "node": "Get run",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get run": {
+      "main": [
+        [
+          {
+            "node": "Get dataset items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get dataset items": {
+      "main": [
+        [
+          {
+            "node": "Combine All Audit Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Run an Actor1": {
+      "main": [
+        [
+          {
+            "node": "Get run1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get run1": {
+      "main": [
+        [
+          {
+            "node": "Get dataset items1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get dataset items1": {
+      "main": [
+        [
+          {
+            "node": "Combine All Audit Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "HTML",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTML": {
+      "main": [
+        [
+          {
+            "node": "Combine All Audit Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Store Audit Data": {
+      "main": [
+        [
+          {
+            "node": "Append or update row in sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Create a document": {
+      "main": [
+        [
+          {
+            "node": "Update a document",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "18434a47-2201-46ba-abff-b77181c6dc6d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "40bc627b19e58e2219818d090d0fbabc94785ec360473ef62f0ec1053cde3ac1"
+  },
+  "id": "5J9VjqDZ2jvbELMA",
+  "tags": []
+}
